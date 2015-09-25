@@ -10,7 +10,7 @@
 				currentText.value = "";
 			}
 
-			var tags = Observable("first", "then someone else said this", "asdfasdfasf");
+			var tags = Observable("test tag 1", "another test tag", "TAG YOU'RE IT");
 
 			module.exports = {
 				currentText: currentText,
