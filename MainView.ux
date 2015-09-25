@@ -7,6 +7,8 @@
 			var Parse = require("Parse").Parse;
 			var ApiKeys = require("ApiKeys");
 
+			Parse.initialize(ApiKeys.appId, ApiKeys.jsKey);
+
 			var currentText = Observable("");
 
 			function submit() {
