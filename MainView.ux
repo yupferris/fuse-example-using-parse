@@ -16,8 +16,12 @@
 			var updateInterval = 500;
 
 			function updateTags() {
-				new Parse.Query("Tag").find().then(function(tags) {
-					debug_log("Query successful: " + JSON.stringify(tags));
+				new Parse.Query("Tag").find().then(function(serverTags) {
+					//debug_log("Query successful: " + JSON.stringify(serverTags));
+					// Let's only add the ones that are newer than what we have
+					for (var i = tags.length; i < serverTags.length; i++) {
+						tags.add(serverTags[i].get("text"));
+					}
 				}, function(error) {
 					debug_log("Could not update tags: " + error);
 				});
