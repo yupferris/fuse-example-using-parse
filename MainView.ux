@@ -3,14 +3,14 @@
 		<JavaScript>
 			var Observable = require("FuseJS/Observable");
 
+			var tags = Observable("test tag 1", "another test tag", "TAG YOU'RE IT");
+
 			var currentText = Observable("");
 
 			function submit() {
 				tags.add(currentText.value);
 				currentText.value = "";
 			}
-
-			var tags = Observable("test tag 1", "another test tag", "TAG YOU'RE IT");
 
 			module.exports = {
 				currentText: currentText,
