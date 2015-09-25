@@ -1,7 +1,9 @@
 <App Theme="Basic" ClearColor="#eeeeeeff">
 	<DockPanel>
+		<JavaScript File="parse-1.6.3.js" ux:Global="Parse" />
 		<JavaScript>
 			var Observable = require("FuseJS/Observable");
+			var Parse = require("Parse").Parse;
 
 			var currentText = Observable("");
 
