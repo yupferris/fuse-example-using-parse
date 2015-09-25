@@ -11,7 +11,7 @@
 
 			var Tag = Parse.Object.extend("Tag");
 
-			var tags = Observable("test tag 1", "another test tag", "TAG YOU'RE IT");
+			var tags = Observable();
 
 			var currentText = Observable("");
 
