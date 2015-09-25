@@ -13,6 +13,20 @@
 
 			var tags = Observable();
 
+			var updateInterval = 500;
+
+			function updateTags() {
+				new Parse.Query("Tag").find().then(function(tags) {
+					debug_log("Query successful: " + JSON.stringify(tags));
+				}, function(error) {
+					debug_log("Could not update tags: " + error);
+				});
+
+				setTimeout(updateTags, updateInterval);
+			}
+
+			setTimeout(updateTags, updateInterval);
+
 			var currentText = Observable("");
 
 			function submit() {
