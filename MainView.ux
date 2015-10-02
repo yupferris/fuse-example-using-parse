@@ -29,7 +29,7 @@
 				setTimeout(updateTags, updateInterval);
 			}
 
-			setTimeout(updateTags, updateInterval);
+			updateTags();
 
 			var currentText = Observable("");
 
