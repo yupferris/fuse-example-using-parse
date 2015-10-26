@@ -1,6 +1,6 @@
 <App Theme="Basic" ClearColor="#eeeeeeff">
 	<DockPanel>
-		<JavaScript File="parse-1.6.3.js" ux:Global="Parse" />
+		<JavaScript File="parse-1.6.7.js" ux:Global="Parse" />
 		<JavaScript File="api-keys.js" ux:Global="ApiKeys" />
 		<JavaScript>
 			var Observable = require("FuseJS/Observable");

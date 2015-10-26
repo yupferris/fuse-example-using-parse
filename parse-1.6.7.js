@@ -1,5 +1,5 @@
 /**
- * Parse JavaScript SDK v1.6.3
+ * Parse JavaScript SDK v1.6.7
  *
  * The source tree of this library can be found at
  *   https://github.com/ParsePlatform/Parse-SDK-JS
@@ -207,7 +207,7 @@ var config = {
   IS_NODE: typeof process !== 'undefined' && !!process.versions && !!process.versions.node,
   REQUEST_ATTEMPT_LIMIT: 5,
   SERVER_URL: 'https://api.parse.com',
-  VERSION: {"version":"1.6.3"}.version,
+  VERSION: '1.6.7',
   APPLICATION_ID: null,
   JAVASCRIPT_KEY: null,
   MASTER_KEY: null,
@@ -423,7 +423,7 @@ module.exports = {
   }
 };
 }).call(this,_dereq_('_process'))
-},{"_process":75}],4:[function(_dereq_,module,exports){
+},{"_process":49}],4:[function(_dereq_,module,exports){
 /**
  * Copyright (c) 2015-present, Parse, LLC.
  * All rights reserved.
@@ -1018,6 +1018,9 @@ var Parse = {
    * @static
    */
   initialize: function initialize(applicationId, javaScriptKey) {
+    if ('browser' === 'browser' && _CoreManager2['default'].get('IS_NODE')) {
+      console.log('It looks like you\'re using the browser version of the SDK in a ' + 'node.js environment. You should require(\'parse/node\') instead.');
+    }
     Parse._initialize(applicationId, javaScriptKey);
   },
 
@@ -3157,13 +3160,14 @@ var ParseObject = (function () {
   }, {
     key: 'toJSON',
     value: function toJSON() {
+      var seenEntry = this.id ? this.className + ':' + this.id : this;
       var json = {};
       var attrs = this.attributes;
       for (var attr in attrs) {
         if ((attr === 'createdAt' || attr === 'updatedAt') && attrs[attr].toJSON) {
           json[attr] = attrs[attr].toJSON();
         } else {
-          json[attr] = (0, _encode2['default'])(attrs[attr], false, true);
+          json[attr] = (0, _encode2['default'])(attrs[attr], false, false, [seenEntry]);
         }
       }
       var pending = this._getPendingOps();
@@ -3401,6 +3405,8 @@ var ParseObject = (function () {
           newOps[k] = (0, _ParseOp.opFromJSON)(changes[k]);
         } else if (k === 'objectId' || k === 'id') {
           this.id = changes[k];
+        } else if (k === 'ACL' && typeof changes[k] === 'object' && !(changes[k] instanceof _ParseACL2['default'])) {
+          newOps[k] = new _ParseOp.SetOp(new _ParseACL2['default'](changes[k]));
         } else {
           newOps[k] = new _ParseOp.SetOp(changes[k]);
         }
@@ -3673,8 +3679,7 @@ var ParseObject = (function () {
 
     /**
      * Fetch the model from the server. If the server's representation of the
-     * model differs from its current attributes, they will be overriden,
-     * triggering a <code>"change"</code> event.
+     * model differs from its current attributes, they will be overriden.
      *
      * @method fetch
      * @param {Object} options A Backbone-style callback object.
@@ -3809,7 +3814,6 @@ var ParseObject = (function () {
 
     /**
      * Destroy this model on the server if it was already persisted.
-     * Optimistically removes the model from its collection, if it has one.
      * If `wait: true` is passed, waits for the server to respond
      * before removal.
      *
@@ -3958,7 +3962,6 @@ var ParseObject = (function () {
 
     /**
      * Destroy the given list of models on the server if it was already persisted.
-     * Optimistically removes each model from its collection, if it has one.
      *
      * <p>Unlike saveAll, if an error occurs while deleting an individual model,
      * this method will continue trying to delete the rest of the models if
@@ -4113,6 +4116,9 @@ var ParseObject = (function () {
         }
       }
       o._finishFetch(otherAttributes);
+      if (json.objectId) {
+        o._setExisted(true);
+      }
       return o;
     }
 
@@ -5704,7 +5710,11 @@ var ParseQuery = (function () {
     _classCallCheck(this, ParseQuery);
 
     if (typeof objectClass === 'string') {
-      this.className = objectClass;
+      if (objectClass === 'User' && _CoreManager2['default'].get('PERFORM_USER_REWRITE')) {
+        this.className = '_User';
+      } else {
+        this.className = objectClass;
+      }
     } else if (objectClass instanceof _ParseObject2['default']) {
       this.className = objectClass.className;
     } else if (typeof objectClass === 'function') {
@@ -6823,7 +6833,7 @@ var ParseRelation = (function () {
       var change = new _ParseOp.RelationOp(objects, []);
       this.parent.set(this.key, change);
       this.targetClassName = change._targetClassName;
-      return parent;
+      return this.parent;
     }
 
     /**
@@ -7374,6 +7384,8 @@ var ParseUser = (function (_ParseObject) {
             }
             _this._linkWith(provider, opts).then(function () {
               promise.resolve(_this);
+            }, function (error) {
+              promise.reject(error);
             });
           },
           error: function error(provider, _error) {
@@ -7675,10 +7687,6 @@ var ParseUser = (function (_ParseObject) {
   }, {
     key: 'logIn',
     value: function logIn(options) {
-      if (!canUseCurrentUser) {
-        throw new Error('It is not possible to log in on a server environment.');
-      }
-
       options = options || {};
 
       var loginOptions = {};
@@ -7687,7 +7695,7 @@ var ParseUser = (function (_ParseObject) {
       }
 
       var controller = _CoreManager2['default'].getUserController();
-      return controller.logIn(this, loginOptions)._thenRunCallbacks(options);
+      return controller.logIn(this, loginOptions)._thenRunCallbacks(options, this);
     }
   }], [{
     key: 'readOnlyAttributes',
@@ -7949,7 +7957,7 @@ var ParseUser = (function (_ParseObject) {
     }
 
     /**
-     * Enables the use of logIn, become, and a current user in a server
+     * Enables the use of become or the current user in a server
      * environment. These features are disabled by default, since they depend on
      * global objects that are not memory-safe for most servers.
      * @method enableUnsafeCurrentUser
@@ -7959,6 +7967,19 @@ var ParseUser = (function (_ParseObject) {
     key: 'enableUnsafeCurrentUser',
     value: function enableUnsafeCurrentUser() {
       canUseCurrentUser = true;
+    }
+
+    /**
+     * Disables the use of become or the current user in any environment.
+     * These features are disabled on servers by default, since they depend on
+     * global objects that are not memory-safe for most servers.
+     * @method disableUnsafeCurrentUser
+     * @static
+     */
+  }, {
+    key: 'disableUnsafeCurrentUser',
+    value: function disableUnsafeCurrentUser() {
+      canUseCurrentUser = false;
     }
   }, {
     key: '_registerAuthenticationProvider',
@@ -8116,6 +8137,10 @@ var DefaultController = {
       ObjectState.setPendingOp(user.className, user._getId(), 'password', undefined);
       response.password = undefined;
       user._finishFetch(response);
+      if (!canUseCurrentUser) {
+        // We can't set the current user, so just return the one we logged in
+        return _ParsePromise2['default'].as(user);
+      }
       return DefaultController.setCurrentUser(user);
     });
   },
@@ -8506,7 +8531,7 @@ var RESTController = {
 
 module.exports = RESTController;
 }).call(this,_dereq_('_process'))
-},{"./CoreManager":3,"./ParseError":10,"./ParsePromise":16,"./Storage":24,"_process":75,"babel-runtime/helpers/interop-require-default":47}],24:[function(_dereq_,module,exports){
+},{"./CoreManager":3,"./ParseError":10,"./ParsePromise":16,"./Storage":24,"_process":49,"babel-runtime/helpers/interop-require-default":47}],24:[function(_dereq_,module,exports){
 /**
  * Copyright (c) 2015-present, Parse, LLC.
  * All rights reserved.
@@ -8605,8 +8630,8 @@ module.exports = {
   }
 };
 
-_CoreManager2['default'].setStorageController(_dereq_('./StorageController.default'));
-},{"./CoreManager":3,"./ParsePromise":16,"./StorageController.default":25,"babel-runtime/helpers/interop-require-default":47}],25:[function(_dereq_,module,exports){
+_CoreManager2['default'].setStorageController(_dereq_('./StorageController.browser'));
+},{"./CoreManager":3,"./ParsePromise":16,"./StorageController.browser":25,"babel-runtime/helpers/interop-require-default":47}],25:[function(_dereq_,module,exports){
 /**
  * Copyright (c) 2015-present, Parse, LLC.
  * All rights reserved.
@@ -8618,38 +8643,34 @@ _CoreManager2['default'].setStorageController(_dereq_('./StorageController.defau
  * 
  */
 
-// When there is no native storage interface, we default to an in-memory map
-"use strict";
+'use strict';
 
-var memMap = {};
+var _interopRequireDefault = _dereq_('babel-runtime/helpers/interop-require-default')['default'];
+
+var _ParsePromise = _dereq_('./ParsePromise');
+
+var _ParsePromise2 = _interopRequireDefault(_ParsePromise);
 
 module.exports = {
   async: 0,
 
   getItem: function getItem(path) {
-    if (memMap.hasOwnProperty(path)) {
-      return memMap[path];
-    }
-    return null;
+    return localStorage.getItem(path);
   },
 
   setItem: function setItem(path, value) {
-    memMap[path] = String(value);
+    localStorage.setItem(path, value);
   },
 
   removeItem: function removeItem(path) {
-    delete memMap[path];
+    localStorage.removeItem(path);
   },
 
   clear: function clear() {
-    for (var key in memMap) {
-      if (memMap.hasOwnProperty(key)) {
-        delete memMap[key];
-      }
-    }
+    localStorage.clear();
   }
 };
-},{}],26:[function(_dereq_,module,exports){
+},{"./ParsePromise":16,"babel-runtime/helpers/interop-require-default":47}],26:[function(_dereq_,module,exports){
 /**
  * Copyright (c) 2015-present, Parse, LLC.
  * All rights reserved.
@@ -8974,72 +8995,68 @@ var _ParseRelation2 = _interopRequireDefault(_ParseRelation);
 
 var toString = Object.prototype.toString;
 
-function encode(_x, _x2, _x3, _x4) {
-  var _again = true;
-
-  _function: while (_again) {
-    var value = _x,
-        disallowObjects = _x2,
-        forcePointers = _x3,
-        seen = _x4;
-    json = output = k = undefined;
-    _again = false;
-
-    if (value instanceof _ParseObject2['default']) {
-      if (disallowObjects) {
-        throw new Error('Parse Objects not allowed here');
-      }
-      if (forcePointers || !seen || seen.indexOf(value) > -1 || value.dirty() || _Object$keys(value._getServerData()).length < 1) {
-        return value.toPointer();
-      }
-      seen = seen.concat(value);
-      var json = value._toFullJSON(seen);
-      _x = json;
-      _x2 = disallowObjects;
-      _x3 = forcePointers;
-      _x4 = seen;
-      _again = true;
-      continue _function;
+function encode(value, disallowObjects, forcePointers, seen) {
+  if (value instanceof _ParseObject2['default']) {
+    if (disallowObjects) {
+      throw new Error('Parse Objects not allowed here');
     }
-    if (value instanceof _ParseOp.Op || value instanceof _ParseACL2['default'] || value instanceof _ParseGeoPoint2['default'] || value instanceof _ParseRelation2['default']) {
-      return value.toJSON();
+    var seenEntry = value.id ? value.className + ':' + value.id : value;
+    if (forcePointers || !seen || seen.indexOf(seenEntry) > -1 || value.dirty() || _Object$keys(value._getServerData()).length < 1) {
+      return value.toPointer();
     }
-    if (value instanceof _ParseFile2['default']) {
-      if (!value.url()) {
-        throw new Error('Tried to encode an unsaved file.');
-      }
-      return value.toJSON();
+    seen = seen.concat(seenEntry);
+    var json = encode(value.attributes, disallowObjects, forcePointers, seen);
+    if (json.createdAt) {
+      json.createdAt = json.createdAt.iso;
     }
-    if (toString.call(value) === '[object Date]') {
-      if (isNaN(value)) {
-        throw new Error('Tried to encode an invalid date.');
-      }
-      return { __type: 'Date', iso: value.toJSON() };
+    if (json.updatedAt) {
+      json.updatedAt = json.updatedAt.iso;
     }
-    if (toString.call(value) === '[object RegExp]' && typeof value.source === 'string') {
-      return value.source;
+    json.className = value.className;
+    json.__type = 'Object';
+    if (value.id) {
+      json.objectId = value.id;
     }
-
-    if (Array.isArray(value)) {
-      return value.map(function (v) {
-        return encode(v, disallowObjects, forcePointers, seen);
-      });
-    }
-
-    if (value && typeof value === 'object') {
-      var output = {};
-      for (var k in value) {
-        output[k] = encode(value[k], disallowObjects, forcePointers, seen);
-      }
-      return output;
-    }
-
-    return value;
+    return json;
   }
+  if (value instanceof _ParseOp.Op || value instanceof _ParseACL2['default'] || value instanceof _ParseGeoPoint2['default'] || value instanceof _ParseRelation2['default']) {
+    return value.toJSON();
+  }
+  if (value instanceof _ParseFile2['default']) {
+    if (!value.url()) {
+      throw new Error('Tried to encode an unsaved file.');
+    }
+    return value.toJSON();
+  }
+  if (toString.call(value) === '[object Date]') {
+    if (isNaN(value)) {
+      throw new Error('Tried to encode an invalid date.');
+    }
+    return { __type: 'Date', iso: value.toJSON() };
+  }
+  if (toString.call(value) === '[object RegExp]' && typeof value.source === 'string') {
+    return value.source;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(function (v) {
+      return encode(v, disallowObjects, forcePointers, seen);
+    });
+  }
+
+  if (value && typeof value === 'object') {
+    var output = {};
+    for (var k in value) {
+      output[k] = encode(value[k], disallowObjects, forcePointers, seen);
+    }
+    return output;
+  }
+
+  return value;
 }
 
-exports['default'] = function (value, disallowObjects, forcePointers) {
-  return encode(value, !!disallowObjects, !!forcePointers, []);
+exports['default'] = function (value, disallowObjects, forcePointers, seen) {
+  return encode(value, !!disallowObjects, !!forcePointers, seen || []);
 };
 
 module.exports = exports['default'];
@@ -9362,17 +9379,17 @@ function traverse(obj, encountered, shouldThrow, allowDeepUnsaved) {
 module.exports = exports['default'];
 },{"./ParseFile":11,"./ParseObject":14,"./ParseRelation":18,"babel-runtime/helpers/interop-require-default":47}],37:[function(_dereq_,module,exports){
 module.exports = { "default": _dereq_("core-js/library/fn/object/create"), __esModule: true };
-},{"core-js/library/fn/object/create":49}],38:[function(_dereq_,module,exports){
+},{"core-js/library/fn/object/create":50}],38:[function(_dereq_,module,exports){
 module.exports = { "default": _dereq_("core-js/library/fn/object/define-property"), __esModule: true };
-},{"core-js/library/fn/object/define-property":50}],39:[function(_dereq_,module,exports){
+},{"core-js/library/fn/object/define-property":51}],39:[function(_dereq_,module,exports){
 module.exports = { "default": _dereq_("core-js/library/fn/object/freeze"), __esModule: true };
-},{"core-js/library/fn/object/freeze":51}],40:[function(_dereq_,module,exports){
+},{"core-js/library/fn/object/freeze":52}],40:[function(_dereq_,module,exports){
 module.exports = { "default": _dereq_("core-js/library/fn/object/get-own-property-descriptor"), __esModule: true };
-},{"core-js/library/fn/object/get-own-property-descriptor":52}],41:[function(_dereq_,module,exports){
+},{"core-js/library/fn/object/get-own-property-descriptor":53}],41:[function(_dereq_,module,exports){
 module.exports = { "default": _dereq_("core-js/library/fn/object/keys"), __esModule: true };
-},{"core-js/library/fn/object/keys":53}],42:[function(_dereq_,module,exports){
+},{"core-js/library/fn/object/keys":54}],42:[function(_dereq_,module,exports){
 module.exports = { "default": _dereq_("core-js/library/fn/object/set-prototype-of"), __esModule: true };
-},{"core-js/library/fn/object/set-prototype-of":54}],43:[function(_dereq_,module,exports){
+},{"core-js/library/fn/object/set-prototype-of":55}],43:[function(_dereq_,module,exports){
 "use strict";
 
 exports["default"] = function (instance, Constructor) {
@@ -9508,51 +9525,53 @@ exports["default"] = function (obj) {
 
 exports.__esModule = true;
 },{}],49:[function(_dereq_,module,exports){
+
+},{}],50:[function(_dereq_,module,exports){
 var $ = _dereq_('../../modules/$');
 module.exports = function create(P, D){
   return $.create(P, D);
 };
-},{"../../modules/$":66}],50:[function(_dereq_,module,exports){
+},{"../../modules/$":67}],51:[function(_dereq_,module,exports){
 var $ = _dereq_('../../modules/$');
 module.exports = function defineProperty(it, key, desc){
   return $.setDesc(it, key, desc);
 };
-},{"../../modules/$":66}],51:[function(_dereq_,module,exports){
+},{"../../modules/$":67}],52:[function(_dereq_,module,exports){
 _dereq_('../../modules/es6.object.freeze');
 module.exports = _dereq_('../../modules/$.core').Object.freeze;
-},{"../../modules/$.core":58,"../../modules/es6.object.freeze":71}],52:[function(_dereq_,module,exports){
+},{"../../modules/$.core":59,"../../modules/es6.object.freeze":72}],53:[function(_dereq_,module,exports){
 var $ = _dereq_('../../modules/$');
 _dereq_('../../modules/es6.object.get-own-property-descriptor');
 module.exports = function getOwnPropertyDescriptor(it, key){
   return $.getDesc(it, key);
 };
-},{"../../modules/$":66,"../../modules/es6.object.get-own-property-descriptor":72}],53:[function(_dereq_,module,exports){
+},{"../../modules/$":67,"../../modules/es6.object.get-own-property-descriptor":73}],54:[function(_dereq_,module,exports){
 _dereq_('../../modules/es6.object.keys');
 module.exports = _dereq_('../../modules/$.core').Object.keys;
-},{"../../modules/$.core":58,"../../modules/es6.object.keys":73}],54:[function(_dereq_,module,exports){
+},{"../../modules/$.core":59,"../../modules/es6.object.keys":74}],55:[function(_dereq_,module,exports){
 _dereq_('../../modules/es6.object.set-prototype-of');
 module.exports = _dereq_('../../modules/$.core').Object.setPrototypeOf;
-},{"../../modules/$.core":58,"../../modules/es6.object.set-prototype-of":74}],55:[function(_dereq_,module,exports){
+},{"../../modules/$.core":59,"../../modules/es6.object.set-prototype-of":75}],56:[function(_dereq_,module,exports){
 module.exports = function(it){
   if(typeof it != 'function')throw TypeError(it + ' is not a function!');
   return it;
 };
-},{}],56:[function(_dereq_,module,exports){
+},{}],57:[function(_dereq_,module,exports){
 var isObject = _dereq_('./$.is-object');
 module.exports = function(it){
   if(!isObject(it))throw TypeError(it + ' is not an object!');
   return it;
 };
-},{"./$.is-object":65}],57:[function(_dereq_,module,exports){
+},{"./$.is-object":66}],58:[function(_dereq_,module,exports){
 var toString = {}.toString;
 
 module.exports = function(it){
   return toString.call(it).slice(8, -1);
 };
-},{}],58:[function(_dereq_,module,exports){
-var core = module.exports = {};
-if(typeof __e == 'number')__e = core; // eslint-disable-line no-undef
 },{}],59:[function(_dereq_,module,exports){
+var core = module.exports = {version: '1.2.1'};
+if(typeof __e == 'number')__e = core; // eslint-disable-line no-undef
+},{}],60:[function(_dereq_,module,exports){
 // optional / simple context binding
 var aFunction = _dereq_('./$.a-function');
 module.exports = function(fn, that, length){
@@ -9568,11 +9587,12 @@ module.exports = function(fn, that, length){
     case 3: return function(a, b, c){
       return fn.call(that, a, b, c);
     };
-  } return function(/* ...args */){
-      return fn.apply(that, arguments);
-    };
+  }
+  return function(/* ...args */){
+    return fn.apply(that, arguments);
+  };
 };
-},{"./$.a-function":55}],60:[function(_dereq_,module,exports){
+},{"./$.a-function":56}],61:[function(_dereq_,module,exports){
 var global    = _dereq_('./$.global')
   , core      = _dereq_('./$.core')
   , PROTOTYPE = 'prototype';
@@ -9620,13 +9640,13 @@ $def.P = 8;  // proto
 $def.B = 16; // bind
 $def.W = 32; // wrap
 module.exports = $def;
-},{"./$.core":58,"./$.global":63}],61:[function(_dereq_,module,exports){
+},{"./$.core":59,"./$.global":64}],62:[function(_dereq_,module,exports){
 // 7.2.1 RequireObjectCoercible(argument)
 module.exports = function(it){
   if(it == undefined)throw TypeError("Can't call method on  " + it);
   return it;
 };
-},{}],62:[function(_dereq_,module,exports){
+},{}],63:[function(_dereq_,module,exports){
 module.exports = function(exec){
   try {
     return !!exec();
@@ -9634,24 +9654,23 @@ module.exports = function(exec){
     return true;
   }
 };
-},{}],63:[function(_dereq_,module,exports){
+},{}],64:[function(_dereq_,module,exports){
 // https://github.com/zloirock/core-js/issues/86#issuecomment-115759028
 var UNDEFINED = 'undefined';
 var global = module.exports = typeof window != UNDEFINED && window.Math == Math
   ? window : typeof self != UNDEFINED && self.Math == Math ? self : Function('return this')();
 if(typeof __g == 'number')__g = global; // eslint-disable-line no-undef
-},{}],64:[function(_dereq_,module,exports){
+},{}],65:[function(_dereq_,module,exports){
 // indexed object, fallback for non-array-like ES3 strings
 var cof = _dereq_('./$.cof');
 module.exports = 0 in Object('z') ? Object : function(it){
   return cof(it) == 'String' ? it.split('') : Object(it);
 };
-},{"./$.cof":57}],65:[function(_dereq_,module,exports){
-// http://jsperf.com/core-js-isobject
+},{"./$.cof":58}],66:[function(_dereq_,module,exports){
 module.exports = function(it){
-  return it !== null && (typeof it == 'object' || typeof it == 'function');
+  return typeof it === 'object' ? it !== null : typeof it === 'function';
 };
-},{}],66:[function(_dereq_,module,exports){
+},{}],67:[function(_dereq_,module,exports){
 var $Object = Object;
 module.exports = {
   create:     $Object.create,
@@ -9665,7 +9684,7 @@ module.exports = {
   getSymbols: $Object.getOwnPropertySymbols,
   each:       [].forEach
 };
-},{}],67:[function(_dereq_,module,exports){
+},{}],68:[function(_dereq_,module,exports){
 // most Object methods by ES6 should accept primitives
 module.exports = function(KEY, exec){
   var $def = _dereq_('./$.def')
@@ -9674,7 +9693,7 @@ module.exports = function(KEY, exec){
   exp[KEY] = exec(fn);
   $def($def.S + $def.F * _dereq_('./$.fails')(function(){ fn(1); }), 'Object', exp);
 };
-},{"./$.core":58,"./$.def":60,"./$.fails":62}],68:[function(_dereq_,module,exports){
+},{"./$.core":59,"./$.def":61,"./$.fails":63}],69:[function(_dereq_,module,exports){
 // Works with __proto__ only. Old v8 can't work with null proto objects.
 /* eslint-disable no-proto */
 var getDesc  = _dereq_('./$').getDesc
@@ -9685,36 +9704,36 @@ var check = function(O, proto){
   if(!isObject(proto) && proto !== null)throw TypeError(proto + ": can't set as prototype!");
 };
 module.exports = {
-  set: Object.setPrototypeOf || ('__proto__' in {} // eslint-disable-line
-    ? function(buggy, set){
-        try {
-          set = _dereq_('./$.ctx')(Function.call, getDesc(Object.prototype, '__proto__').set, 2);
-          set({}, []);
-        } catch(e){ buggy = true; }
-        return function setPrototypeOf(O, proto){
-          check(O, proto);
-          if(buggy)O.__proto__ = proto;
-          else set(O, proto);
-          return O;
-        };
-      }()
-    : undefined),
+  set: Object.setPrototypeOf || ('__proto__' in {} ? // eslint-disable-line no-proto
+    function(test, buggy, set){
+      try {
+        set = _dereq_('./$.ctx')(Function.call, getDesc(Object.prototype, '__proto__').set, 2);
+        set(test, []);
+        buggy = !(test instanceof Array);
+      } catch(e){ buggy = true; }
+      return function setPrototypeOf(O, proto){
+        check(O, proto);
+        if(buggy)O.__proto__ = proto;
+        else set(O, proto);
+        return O;
+      };
+    }({}, false) : undefined),
   check: check
 };
-},{"./$":66,"./$.an-object":56,"./$.ctx":59,"./$.is-object":65}],69:[function(_dereq_,module,exports){
+},{"./$":67,"./$.an-object":57,"./$.ctx":60,"./$.is-object":66}],70:[function(_dereq_,module,exports){
 // to indexed object, toObject with fallback for non-array-like ES3 strings
 var IObject = _dereq_('./$.iobject')
   , defined = _dereq_('./$.defined');
 module.exports = function(it){
   return IObject(defined(it));
 };
-},{"./$.defined":61,"./$.iobject":64}],70:[function(_dereq_,module,exports){
+},{"./$.defined":62,"./$.iobject":65}],71:[function(_dereq_,module,exports){
 // 7.1.13 ToObject(argument)
 var defined = _dereq_('./$.defined');
 module.exports = function(it){
   return Object(defined(it));
 };
-},{"./$.defined":61}],71:[function(_dereq_,module,exports){
+},{"./$.defined":62}],72:[function(_dereq_,module,exports){
 // 19.1.2.5 Object.freeze(O)
 var isObject = _dereq_('./$.is-object');
 
@@ -9723,7 +9742,7 @@ _dereq_('./$.object-sap')('freeze', function($freeze){
     return $freeze && isObject(it) ? $freeze(it) : it;
   };
 });
-},{"./$.is-object":65,"./$.object-sap":67}],72:[function(_dereq_,module,exports){
+},{"./$.is-object":66,"./$.object-sap":68}],73:[function(_dereq_,module,exports){
 // 19.1.2.6 Object.getOwnPropertyDescriptor(O, P)
 var toIObject = _dereq_('./$.to-iobject');
 
@@ -9732,7 +9751,7 @@ _dereq_('./$.object-sap')('getOwnPropertyDescriptor', function($getOwnPropertyDe
     return $getOwnPropertyDescriptor(toIObject(it), key);
   };
 });
-},{"./$.object-sap":67,"./$.to-iobject":69}],73:[function(_dereq_,module,exports){
+},{"./$.object-sap":68,"./$.to-iobject":70}],74:[function(_dereq_,module,exports){
 // 19.1.2.14 Object.keys(O)
 var toObject = _dereq_('./$.to-object');
 
@@ -9741,11 +9760,9 @@ _dereq_('./$.object-sap')('keys', function($keys){
     return $keys(toObject(it));
   };
 });
-},{"./$.object-sap":67,"./$.to-object":70}],74:[function(_dereq_,module,exports){
+},{"./$.object-sap":68,"./$.to-object":71}],75:[function(_dereq_,module,exports){
 // 19.1.3.19 Object.setPrototypeOf(O, proto)
 var $def = _dereq_('./$.def');
 $def($def.S, 'Object', {setPrototypeOf: _dereq_('./$.set-proto').set});
-},{"./$.def":60,"./$.set-proto":68}],75:[function(_dereq_,module,exports){
-
-},{}]},{},[7])(7)
+},{"./$.def":61,"./$.set-proto":69}]},{},[7])(7)
 });

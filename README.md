@@ -15,7 +15,7 @@ module.exports = {
 Once that's done, you're ready to roll!
 
 ## Fuse version
-This example was produced with Fuse (beta) v0.5.7001 (September 22, 2015).
+This example was produced with Fuse (beta) v0.8.4.
 
 ## Branches
 The "finished product" is on the `master` branch, and the template I started with in the video is on the `starting-template` branch.
