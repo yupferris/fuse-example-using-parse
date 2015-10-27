@@ -53,6 +53,7 @@
 		</JavaScript>
 
 		<StatusBarBackground Dock="Top" />
+		<BottomBarBackground Dock="Bottom" />
 
 		<Text Dock="Top" Alignment="Center" FontSize="80" Margin="0,50,0,50" TextColor="#1e88e5">tag</Text>
 
