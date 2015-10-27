@@ -21,4 +21,4 @@ This example was produced with Fuse (beta) v0.8.4.
 The "finished product" is on the `master` branch, and the template I started with in the video is on the `starting-template` branch.
 
 ## License
-This code is licensed under the BSD2 license (see LICENSE). The Parse JavaScript SDK v1.6.3 is licenced under its own BSD-style license (see parse-1.6.3.js).
+This code is licensed under the BSD2 license (see LICENSE). The Parse JavaScript SDK v1.6.7 is licenced under its own BSD-style license (see parse-1.6.7.js).
