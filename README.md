@@ -1,5 +1,5 @@
 # Using Parse with Fuse Example
-Example project to accompany the "Using Parse with Fuse" Fuse tutorial video. This is a super simple app using [Parse](https://www.parse.com) as a backend service, where anyone can simply post text, and anyone else can see that text. All relevant code is in the `MainView.ux` file.
+Example project to accompany the "[Using Parse with Fuse](https://www.youtube.com/watch?v=6q8TDUSYOVw)" Fuse tutorial video. This is a super simple app using [Parse](https://www.parse.com) as a backend service, where anyone can simply post text, and anyone else can see that text. All relevant code is in the `MainView.ux` file.
 
 ## Setup
 _NOTE: this is covered in the tutorial video._
