@@ -1,6 +1,8 @@
 # Using Parse with Fuse Example
 Example project to accompany the "[Using Parse with Fuse](https://youtu.be/Th0V2p7EmXw)" Fuse tutorial video. This is a super simple app using [Parse](https://www.parse.com) as a backend service, where anyone can simply post text, and anyone else can see that text. All relevant code is in the `MainView.ux` file.
 
+Note: This example has also been ported to use [Syncano](https://www.syncano.io/) in [@bolav](https://github.com/bolav)'s fork: https://github.com/bolav/fuse-example-using-syncano !
+
 ## Setup
 _NOTE: this is covered in the tutorial video._
 
