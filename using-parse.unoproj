@@ -1,6 +1,9 @@
 {
   "RootNamespace":"",
   "Packages": [
+		"Fuse.Android",
+        "Fuse.Desktop",
+        "Fuse.iOS",
         "Fuse.Animations",
         "Fuse.BasicTheme",
         "Fuse.Controls",
